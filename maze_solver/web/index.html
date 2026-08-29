@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A* Maze Solver & Pathfinding Visualizer</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-sidebar: #1e293b;
+      --bg-card: #334155;
+      --border-color: #475569;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --start-color: #22c55e;
+      --goal-color: #ef4444;
+      --wall-color: #475569;
+      --open-color: #06b6d4;
+      --closed-color: #8b5cf6;
+      --current-color: #ec4899;
+      --path-color: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+      overflow-y: auto;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card {
+      background-color: var(--bg-card);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background-color: #475569;
+      color: var(--text-main);
+    }
+
+    button:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background-color: #22c55e;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .btn-secondary {
+      background-color: #38bdf8;
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .btn-danger {
+      background-color: #ef4444;
+      color: white;
+    }
+
+    .btn-full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    select, input[type="range"] {
+      width: 100%;
+      background-color: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 8px;
+      border-radius: 6px;
+      outline: none;
+      font-size: 0.85rem;
+    }
+
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-main);
+    }
+
+    .checkbox-container input {
+      accent-color: var(--accent);
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
+
+    .tool-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .tool-btn {
+      font-size: 0.75rem;
+      padding: 6px;
+      background-color: #1e293b;
+      border: 1px solid var(--border-color);
+    }
+
+    .tool-btn.active {
+      background-color: var(--accent);
+      color: #0f172a;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Stats */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      padding: 2px 0;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      background-color: #1e293b;
+      color: #22c55e;
+    }
+
+    /* Main Area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .legend-box {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    #gridCanvas {
+      background-color: #0f172a;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar Controls -->
+  <aside class="sidebar">
+    <div class="title">
+      ⚡ A* Maze Solver
+    </div>
+
+    <!-- Execution Card -->
+    <div class="card">
+      <div class="card-title">Execution Controls</div>
+      <div class="btn-grid">
+        <button id="btnSolve" class="btn-primary">▶ Visual Solve</button>
+        <button id="btnInstant" class="btn-secondary">⚡ Instant</button>
+        <button id="btnStep">⏭ Step</button>
+        <button id="btnStop" class="btn-danger">⏹ Stop</button>
+        <button id="btnClearPath">🔄 Clear Path</button>
+        <button id="btnClearAll">🗑 Clear Grid</button>
+      </div>
+    </div>
+
+    <!-- Maze Generation Card -->
+    <div class="card">
+      <div class="card-title">Procedural Mazes</div>
+      <button id="btnRecursive" class="btn-full">🌀 Recursive Labyrinth</button>
+      <button id="btnRandom" class="btn-full">🎲 Random Obstacles (30%)</button>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="card">
+      <div class="card-title">Algorithm Settings</div>
+      <div>
+        <label for="selectHeuristic">Heuristic:</label>
+        <select id="selectHeuristic">
+          <option value="manhattan">Manhattan (Grid)</option>
+          <option value="euclidean">Euclidean (Straight Line)</option>
+          <option value="chebyshev">Chebyshev (8-Way Max)</option>
+          <option value="octile">Octile (8-Way Diagonal)</option>
+        </select>
+      </div>
+
+      <label class="checkbox-container">
+        <input type="checkbox" id="chkDiagonal">
+        Allow Diagonal Movement
+      </label>
+
+      <div>
+        <label for="sliderSpeed">Animation Speed: <span id="speedValue">15 ms</span></label>
+        <input type="range" id="sliderSpeed" min="1" max="100" value="15">
+      </div>
+    </div>
+
+    <!-- Tools Selection -->
+    <div class="card">
+      <div class="card-title">Mouse Edit Tool</div>
+      <div class="tool-group">
+        <button class="tool-btn active" data-tool="wall">✏️ Wall</button>
+        <button class="tool-btn" data-tool="erase">🧹 Erase</button>
+        <button class="tool-btn" data-tool="start">🟢 Set Start</button>
+        <button class="tool-btn" data-tool="goal">🔴 Set Goal</button>
+      </div>
+    </div>
+
+    <!-- Metrics Card -->
+    <div class="card">
+      <div class="card-title">Search Statistics</div>
+      <div id="statusBadge" class="status-badge">Ready</div>
+      <div class="stat-row">
+        <span>Visited Nodes:</span>
+        <span id="statVisited" class="stat-value">0</span>
+      </div>
+      <div class="stat-row">
+        <span>Path Cost:</span>
+        <span id="statCost" class="stat-value">-</span>
+      </div>
+      <div class="stat-row">
+        <span>Execution Time:</span>
+        <span id="statTime" class="stat-value">0 ms</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Canvas Section -->
+  <main class="main-content">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-box" style="background: var(--start-color);"></div> Start (S)</div>
+      <div class="legend-item"><div class="legend-box" style="background: var(--goal-color);"></div> Goal (G)</div>
+      <div class="legend-item"><div class="legend-box" style="background: var(--wall-color);"></div> Wall</div>
+      <div class="legend-item"><div class="legend-box" style="background: var(--open-color);"></div> Frontier (Open)</div>
+      <div class="legend-item"><div class="legend-box" style="background: var(--closed-color);"></div> Explored (Closed)</div>
+      <div class="legend-item"><div class="legend-box" style="background: var(--path-color);"></div> Shortest Path</div>
+    </div>
+
+    <canvas id="gridCanvas"></canvas>
+  </main>
+
+  <script>
+    // --- Configuration & Constants ---
+    const ROWS = 27;
+    const COLS = 39;
+    const CELL_SIZE = 22;
+
+    const canvas = document.getElementById('gridCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = COLS * CELL_SIZE;
+    canvas.height = ROWS * CELL_SIZE;
+
+    // Colors
+    const COLORS = {
+      empty: '#0f172a',
+      gridLine: '#1e293b',
+      wall: '#475569',
+      start: '#22c55e',
+      goal: '#ef4444',
+      open: '#06b6d4',
+      closed: '#8b5cf6',
+      current: '#ec4899',
+      path: '#f59e0b'
+    };
+
+    // State
+    let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    let startPos = { r: 1, c: 1 };
+    let goalPos = { r: ROWS - 2, c: COLS - 2 };
+    let currentTool = 'wall';
+    let isMouseDown = false;
+    let isRightMouseDown = false;
+    let isRunning = false;
+    let animTimeout = null;
+
+    // Search state
+    let visitedSet = new Set();
+    let openSetCoords = new Set();
+    let pathList = [];
+    let generatorInstance = null;
+    let searchStartTime = 0;
+
+    // --- Heuristics ---
+    function getHeuristic(type) {
+      switch (type) {
+        case 'euclidean':
+          return (a, b) => Math.hypot(a.r - b.r, a.c - b.c);
+        case 'chebyshev':
+          return (a, b) => Math.max(Math.abs(a.r - b.r), Math.abs(a.c - b.c));
+        case 'octile':
+          return (a, b) => {
+            const dx = Math.abs(a.c - b.c);
+            const dy = Math.abs(a.r - b.r);
+            return (dx + dy) + (Math.SQRT2 - 2) * Math.min(dx, dy);
+          };
+        case 'manhattan':
+        default:
+          return (a, b) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
+      }
+    }
+
+    // --- Priority Queue (Min Heap) for A* ---
+    class MinHeap {
+      constructor() { this.heap = []; }
+      push(item) {
+        this.heap.push(item);
+        this._bubbleUp(this.heap.length - 1);
+      }
+      pop() {
+        if (this.heap.length === 0) return null;
+        const top = this.heap[0];
+        const bottom = this.heap.pop();
+        if (this.heap.length > 0) {
+          this.heap[0] = bottom;
+          this._sinkDown(0);
+        }
+        return top;
+      }
+      size() { return this.heap.length; }
+      _bubbleUp(n) {
+        while (n > 0) {
+          let p = (n - 1) >> 1;
+          if (this.heap[n].f < this.heap[p].f) {
+            [this.heap[n], this.heap[p]] = [this.heap[p], this.heap[n]];
+            n = p;
+          } else break;
+        }
+      }
+      _sinkDown(n) {
+        const len = this.heap.length;
+        while (true) {
+          let left = (n << 1) + 1;
+          let right = left + 1;
+          let smallest = n;
+          if (left < len && this.heap[left].f < this.heap[smallest].f) smallest = left;
+          if (right < len && this.heap[right].f < this.heap[smallest].f) smallest = right;
+          if (smallest !== n) {
+            [this.heap[n], this.heap[smallest]] = [this.heap[smallest], this.heap[n]];
+            n = smallest;
+          } else break;
+        }
+      }
+    }
+
+    // --- A* Generator Function ---
+    function* astarGenerator(grid, start, goal, heuristicType, allowDiagonal) {
+      const heuristic = getHeuristic(heuristicType);
+      const openHeap = new MinHeap();
+      const openCoords = new Set([`${start.r},${start.c}`]);
+      const closed = new Set();
+      const cameFrom = new Map();
+      const gScore = new Map();
+
+      const startKey = `${start.r},${start.c}`;
+      gScore.set(startKey, 0);
+      openHeap.push({ r: start.r, c: start.c, f: heuristic(start, goal) });
+
+      // Directions
+      const orthogonal = [
+        { dr: -1, dc: 0, cost: 1.0 },
+        { dr: 1, dc: 0, cost: 1.0 },
+        { dr: 0, dc: -1, cost: 1.0 },
+        { dr: 0, dc: 1, cost: 1.0 }
+      ];
+      const diagonal = [
+        { dr: -1, dc: -1, cost: Math.SQRT2 },
+        { dr: -1, dc: 1, cost: Math.SQRT2 },
+        { dr: 1, dc: -1, cost: Math.SQRT2 },
+        { dr: 1, dc: 1, cost: Math.SQRT2 }
+      ];
+
+      const moves = allowDiagonal ? [...orthogonal, ...diagonal] : orthogonal;
+
+      while (openHeap.size() > 0) {
+        const current = openHeap.pop();
+        const currentKey = `${current.r},${current.c}`;
+
+        if (!openCoords.has(currentKey)) continue;
+        openCoords.delete(currentKey);
+        closed.add(currentKey);
+
+        // Found goal
+        if (current.r === goal.r && current.c === goal.c) {
+          const path = [];
+          let curr = currentKey;
+          while (curr) {
+            const [r, c] = curr.split(',').map(Number);
+            path.unshift({ r, c });
+            curr = cameFrom.get(curr);
+          }
+          yield { done: true, found: true, path, closed, openCoords, gScore, current };
+          return;
+        }
+
+        yield { done: false, closed, openCoords, current, gScore };
+
+        // Explore neighbors
+        for (const move of moves) {
+          const nr = current.r + move.dr;
+          const nc = current.c + move.dc;
+          const nKey = `${nr},${nc}`;
+
+          if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+          if (grid[nr][nc] === 1) continue; // Wall
+
+          // Prevent cutting through tight diagonal corners
+          if (allowDiagonal && Math.abs(move.dr) === 1 && Math.abs(move.dc) === 1) {
+            if (grid[current.r][nc] === 1 && grid[nr][current.c] === 1) continue;
+          }
+
+          const tentG = gScore.get(currentKey) + move.cost;
+          if (!gScore.has(nKey) || tentG < gScore.get(nKey)) {
+            cameFrom.set(nKey, currentKey);
+            gScore.set(nKey, tentG);
+            const fVal = tentG + heuristic({ r: nr, c: nc }, goal);
+
+            if (!openCoords.has(nKey) && !closed.has(nKey)) {
+              openCoords.add(nKey);
+              openHeap.push({ r: nr, c: nc, f: fVal });
+            } else if (openCoords.has(nKey)) {
+              openHeap.push({ r: nr, c: nc, f: fVal });
+            }
+          }
+        }
+      }
+
+      // No path possible
+      yield { done: true, found: false, path: [], closed, openCoords, gScore, current: start };
+    }
+
+    // --- Rendering ---
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const pathLookup = new Set(pathList.map(p => `${p.r},${p.c}`));
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const key = `${r},${c}`;
+          const isStart = (r === startPos.r && c === startPos.c);
+          const isGoal = (r === goalPos.r && c === goalPos.c);
+
+          let fill = COLORS.empty;
+          if (isStart) fill = COLORS.start;
+          else if (isGoal) fill = COLORS.goal;
+          else if (pathLookup.has(key)) fill = COLORS.path;
+          else if (grid[r][c] === 1) fill = COLORS.wall;
+          else if (openSetCoords.has(key)) fill = COLORS.open;
+          else if (visitedSet.has(key)) fill = COLORS.closed;
+
+          ctx.fillStyle = fill;
+          ctx.fillRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+          // Grid border
+          ctx.strokeStyle = COLORS.gridLine;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+
+          // Label Start & Goal
+          if (isStart || isGoal) {
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(isStart ? 'S' : 'G', (c + 0.5) * CELL_SIZE, (r + 0.5) * CELL_SIZE);
+          }
+        }
+      }
+    }
+
+    // --- Maze Generation ---
+    function generateRecursiveBacktracker() {
+      clearPathOnly();
+      grid = Array.from({ length: ROWS }, () => Array(COLS).fill(1));
+
+      const stack = [{ r: 1, c: 1 }];
+      grid[1][1] = 0;
+      const visited = new Set(['1,1']);
+
+      while (stack.length > 0) {
+        const curr = stack[stack.length - 1];
+        const neighbors = [];
+
+        const dirs = [
+          { dr: -2, dc: 0, wdr: -1, wdc: 0 },
+          { dr: 2, dc: 0, wdr: 1, wdc: 0 },
+          { dr: 0, dc: -2, wdr: 0, wdc: -1 },
+          { dr: 0, dc: 2, wdr: 0, wdc: 1 }
+        ];
+
+        for (const d of dirs) {
+          const nr = curr.r + d.dr;
+          const nc = curr.c + d.dc;
+          if (nr > 0 && nr < ROWS - 1 && nc > 0 && nc < COLS - 1) {
+            if (!visited.has(`${nr},${nc}`)) {
+              neighbors.push({ nr, nc, wdr: d.wdr, wdc: d.wdc });
+            }
+          }
+        }
+
+        if (neighbors.length > 0) {
+          const chosen = neighbors[Math.floor(Math.random() * neighbors.length)];
+          grid[curr.r + chosen.wdr][curr.c + chosen.wdc] = 0;
+          grid[chosen.nr][chosen.nc] = 0;
+          visited.add(`${chosen.nr},${chosen.nc}`);
+          stack.push({ r: chosen.nr, c: chosen.nc });
+        } else {
+          stack.pop();
+        }
+      }
+
+      // Ensure start and goal are cleared and connected
+      grid[startPos.r][startPos.c] = 0;
+      grid[goalPos.r][goalPos.c] = 0;
+      if (grid[startPos.r][startPos.c + 1] === 1 && grid[startPos.r + 1][startPos.c] === 1) {
+        grid[startPos.r][startPos.c + 1] = 0;
+      }
+      if (grid[goalPos.r][goalPos.c - 1] === 1 && grid[goalPos.r - 1][goalPos.c] === 1) {
+        grid[goalPos.r][goalPos.c - 1] = 0;
+      }
+
+      updateStatus('Generated Recursive Labyrinth', '#38bdf8');
+      drawGrid();
+    }
+
+    function generateRandomObstacles() {
+      clearPathOnly();
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if ((r === startPos.r && c === startPos.c) || (r === goalPos.r && c === goalPos.c)) {
+            grid[r][c] = 0;
+          } else {
+            grid[r][c] = Math.random() < 0.30 ? 1 : 0;
+          }
+        }
+      }
+      updateStatus('Generated Random Obstacles', '#38bdf8');
+      drawGrid();
+    }
+
+    // --- Control Handlers ---
+    function updateStatus(text, color = '#22c55e') {
+      const badge = document.getElementById('statusBadge');
+      badge.textContent = text;
+      badge.style.color = color;
+    }
+
+    function clearPathOnly() {
+      stopSolver();
+      visitedSet.clear();
+      openSetCoords.clear();
+      pathList = [];
+      generatorInstance = null;
+      document.getElementById('statVisited').textContent = '0';
+      document.getElementById('statCost').textContent = '-';
+      document.getElementById('statTime').textContent = '0 ms';
+      updateStatus('Ready', '#94a3b8');
+      drawGrid();
+    }
+
+    function clearAll() {
+      clearPathOnly();
+      grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+      updateStatus('Grid Cleared', '#94a3b8');
+      drawGrid();
+    }
+
+    function stopSolver() {
+      isRunning = false;
+      if (animTimeout) {
+        clearTimeout(animTimeout);
+        animTimeout = null;
+      }
+    }
+
+    function startVisualSolve() {
+      if (isRunning) return;
+      clearPathOnly();
+      isRunning = true;
+      searchStartTime = performance.now();
+      updateStatus('Searching...', '#06b6d4');
+
+      const heuristic = document.getElementById('selectHeuristic').value;
+      const allowDiag = document.getElementById('chkDiagonal').checked;
+
+      generatorInstance = astarGenerator(grid, startPos, goalPos, heuristic, allowDiag);
+      stepAnimation();
+    }
+
+    function stepAnimation() {
+      if (!isRunning || !generatorInstance) return;
+
+      const res = generatorInstance.next();
+      if (!res.done) {
+        const step = res.value;
+        visitedSet = new Set(step.closed);
+        openSetCoords = new Set(step.openCoords);
+        document.getElementById('statVisited').textContent = visitedSet.size;
+
+        if (step.done) {
+          const elapsed = (performance.now() - searchStartTime).toFixed(1);
+          document.getElementById('statTime').textContent = `${elapsed} ms`;
+          isRunning = false;
+
+          if (step.found) {
+            pathList = step.path;
+            const cost = step.gScore.get(`${goalPos.r},${goalPos.c}`) || (pathList.length - 1);
+            document.getElementById('statCost').textContent = `${cost.toFixed(2)} (${pathList.length} steps)`;
+            updateStatus('Path Found! 🎉', '#22c55e');
+          } else {
+            document.getElementById('statCost').textContent = 'Infinite';
+            updateStatus('No Path Found! 🚫', '#ef4444');
+          }
+          drawGrid();
+          return;
+        }
+
+        drawGrid();
+        const speed = parseInt(document.getElementById('sliderSpeed').value);
+        animTimeout = setTimeout(stepAnimation, speed);
+      } else {
+        isRunning = false;
+      }
+    }
+
+    function stepManual() {
+      if (!generatorInstance) {
+        clearPathOnly();
+        searchStartTime = performance.now();
+        const heuristic = document.getElementById('selectHeuristic').value;
+        const allowDiag = document.getElementById('chkDiagonal').checked;
+        generatorInstance = astarGenerator(grid, startPos, goalPos, heuristic, allowDiag);
+        updateStatus('Stepping...', '#06b6d4');
+      }
+
+      const res = generatorInstance.next();
+      if (!res.done) {
+        const step = res.value;
+        visitedSet = new Set(step.closed);
+        openSetCoords = new Set(step.openCoords);
+        document.getElementById('statVisited').textContent = visitedSet.size;
+
+        if (step.done) {
+          const elapsed = (performance.now() - searchStartTime).toFixed(1);
+          document.getElementById('statTime').textContent = `${elapsed} ms`;
+          if (step.found) {
+            pathList = step.path;
+            const cost = step.gScore.get(`${goalPos.r},${goalPos.c}`) || (pathList.length - 1);
+            document.getElementById('statCost').textContent = `${cost.toFixed(2)} (${pathList.length} steps)`;
+            updateStatus('Path Found! 🎉', '#22c55e');
+          } else {
+            document.getElementById('statCost').textContent = 'Infinite';
+            updateStatus('No Path Found! 🚫', '#ef4444');
+          }
+          generatorInstance = null;
+        }
+        drawGrid();
+      } else {
+        generatorInstance = null;
+      }
+    }
+
+    function solveInstant() {
+      clearPathOnly();
+      const heuristic = document.getElementById('selectHeuristic').value;
+      const allowDiag = document.getElementById('chkDiagonal').checked;
+
+      const t0 = performance.now();
+      const gen = astarGenerator(grid, startPos, goalPos, heuristic, allowDiag);
+      let lastStep = null;
+      for (const step of gen) {
+        lastStep = step;
+      }
+      const elapsed = (performance.now() - t0).toFixed(2);
+
+      if (lastStep) {
+        visitedSet = new Set(lastStep.closed);
+        document.getElementById('statVisited').textContent = visitedSet.size;
+        document.getElementById('statTime').textContent = `${elapsed} ms`;
+
+        if (lastStep.found) {
+          pathList = lastStep.path;
+          const cost = lastStep.gScore.get(`${goalPos.r},${goalPos.c}`) || (pathList.length - 1);
+          document.getElementById('statCost').textContent = `${cost.toFixed(2)} (${pathList.length} steps)`;
+          updateStatus('Path Found! 🎉', '#22c55e');
+        } else {
+          document.getElementById('statCost').textContent = 'Infinite';
+          updateStatus('No Path Found! 🚫', '#ef4444');
+        }
+      }
+      drawGrid();
+    }
+
+    // --- Mouse & Event Listeners ---
+    function getCellCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const c = Math.floor(x / CELL_SIZE);
+      const r = Math.floor(y / CELL_SIZE);
+      if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+        return { r, c };
+      }
+      return null;
+    }
+
+    function handleDraw(cell, forceErase = false) {
+      if (!cell || isRunning) return;
+      const isStart = (cell.r === startPos.r && cell.c === startPos.c);
+      const isGoal = (cell.r === goalPos.r && cell.c === goalPos.c);
+
+      if (forceErase) {
+        if (!isStart && !isGoal) {
+          grid[cell.r][cell.c] = 0;
+          drawGrid();
+        }
+        return;
+      }
+
+      if (currentTool === 'start') {
+        if (!isGoal && grid[cell.r][cell.c] === 0) {
+          startPos = { r: cell.r, c: cell.c };
+          drawGrid();
+        }
+      } else if (currentTool === 'goal') {
+        if (!isStart && grid[cell.r][cell.c] === 0) {
+          goalPos = { r: cell.r, c: cell.c };
+          drawGrid();
+        }
+      } else if (currentTool === 'erase') {
+        if (!isStart && !isGoal) {
+          grid[cell.r][cell.c] = 0;
+          drawGrid();
+        }
+      } else { // 'wall'
+        if (!isStart && !isGoal) {
+          grid[cell.r][cell.c] = 1;
+          drawGrid();
+        }
+      }
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        isMouseDown = true;
+        handleDraw(getCellCoords(e));
+      } else if (e.button === 2) {
+        isRightMouseDown = true;
+        handleDraw(getCellCoords(e), true);
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isMouseDown) handleDraw(getCellCoords(e));
+      else if (isRightMouseDown) handleDraw(getCellCoords(e), true);
+    });
+
+    window.addEventListener('mouseup', () => {
+      isMouseDown = false;
+      isRightMouseDown = false;
+    });
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Tools Buttons
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentTool = btn.dataset.tool;
+      });
+    });
+
+    // Control Buttons
+    document.getElementById('btnSolve').addEventListener('click', startVisualSolve);
+    document.getElementById('btnInstant').addEventListener('click', solveInstant);
+    document.getElementById('btnStep').addEventListener('click', stepManual);
+    document.getElementById('btnStop').addEventListener('click', stopSolver);
+    document.getElementById('btnClearPath').addEventListener('click', clearPathOnly);
+    document.getElementById('btnClearAll').addEventListener('click', clearAll);
+    document.getElementById('btnRecursive').addEventListener('click', generateRecursiveBacktracker);
+    document.getElementById('btnRandom').addEventListener('click', generateRandomObstacles);
+
+    // Speed Slider
+    document.getElementById('sliderSpeed').addEventListener('input', (e) => {
+      document.getElementById('speedValue').textContent = `${e.target.value} ms`;
+    });
+
+    // Initial render
+    drawGrid();
+  </script>
+</body>
+</html>
